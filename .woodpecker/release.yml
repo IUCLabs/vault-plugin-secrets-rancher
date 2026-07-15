@@ -1,0 +1,47 @@
+when:
+  - event: tag
+
+steps:
+  - name: build
+    image: git.unkin.net/unkin/almalinux9-gobuilder:20260606
+    commands:
+      - make build VERSION=${CI_COMMIT_TAG}
+    backend_options:
+      kubernetes:
+        serviceAccountName: default
+        resources:
+          requests: {memory: 512Mi, cpu: 1}
+          limits: {memory: 2Gi, cpu: 2}
+
+  - name: package
+    image: git.unkin.net/unkin/almalinux9-rpmbuilder:latest
+    commands:
+      - ./scripts/build-rpm.sh ${CI_COMMIT_TAG}
+    depends_on: [build]
+    backend_options:
+      kubernetes:
+        serviceAccountName: default
+        resources:
+          requests: {memory: 512Mi, cpu: 1}
+          limits: {memory: 2Gi, cpu: 2}
+
+  - name: upload
+    image: git.unkin.net/unkin/almalinux9-base:20260606
+    commands:
+      - |
+        HOST="https://artifactapi.k8s.syd1.au.unkin.net"
+        REPO="rpm-internal"
+        for rpm in dist/*.rpm; do
+          FILE=$$(basename "$$rpm")
+          code=$$(curl -s -o /dev/null -w '%{http_code}' "$$HOST/api/v2/remotes/$$REPO/files/Packages/$$FILE" || true)
+          if [ "$$code" = "200" ]; then echo "$$FILE exists; skipping"; continue; fi
+          echo "Uploading $$FILE (probe $$code)"
+          curl -f -X PUT "$$HOST/api/v2/remotes/$$REPO/files/$$FILE" -H "Content-Type: application/x-rpm" --data-binary @"$$rpm"
+        done
+    depends_on: [package]
+    backend_options:
+      kubernetes:
+        serviceAccountName: default
+        resources:
+          requests: {memory: 128Mi, cpu: 100m}
+          limits: {memory: 512Mi, cpu: 500m}

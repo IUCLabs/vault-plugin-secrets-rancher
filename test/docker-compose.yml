@@ -1,0 +1,63 @@
+# End-to-end test stack. A mock Rancher ext.cattle.io Token API (in-memory, no
+# k8s) plus two secrets-engine hosts running the exact same plugin binary:
+# HashiCorp Vault and OpenBao. Bind mounts use ":z" so they work under SELinux.
+services:
+  rancher:
+    image: golang:1.25-alpine
+    working_dir: /src
+    environment:
+      MOCKRANCHER_ADDR: ":8443"
+      MOCKRANCHER_TOKEN: "seed-token"
+      GOFLAGS: "-mod=mod"
+    command: ["go", "run", "./test/mockrancher"]
+    volumes:
+      - ..:/src:ro,z
+    ports:
+      - "8443:8443"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8443/healthz"]
+      interval: 3s
+      timeout: 3s
+      retries: 40
+
+  vault:
+    image: hashicorp/vault:1.18
+    depends_on:
+      rancher:
+        condition: service_healthy
+    cap_add: [IPC_LOCK]
+    environment:
+      VAULT_DEV_ROOT_TOKEN_ID: root
+      VAULT_ADDR: http://127.0.0.1:8200
+      VAULT_TOKEN: root
+    command: ["server", "-dev", "-dev-listen-address=0.0.0.0:8200", "-config=/vault/vault.hcl"]
+    volumes:
+      - ../dist:/vault/plugins:ro,z
+      - ./vault/vault.hcl:/vault/vault.hcl:ro,z
+    ports: ["8200:8200"]
+    healthcheck:
+      test: ["CMD", "vault", "status", "-address=http://127.0.0.1:8200"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  openbao:
+    image: openbao/openbao:latest
+    depends_on:
+      rancher:
+        condition: service_healthy
+    cap_add: [IPC_LOCK]
+    environment:
+      BAO_DEV_ROOT_TOKEN_ID: root
+      BAO_ADDR: http://127.0.0.1:8200
+      BAO_TOKEN: root
+    command: ["server", "-dev", "-dev-listen-address=0.0.0.0:8200", "-config=/openbao/bao.hcl"]
+    volumes:
+      - ../dist:/openbao/plugins:ro,z
+      - ./openbao/bao.hcl:/openbao/bao.hcl:ro,z
+    ports: ["8300:8200"]
+    healthcheck:
+      test: ["CMD", "bao", "status", "-address=http://127.0.0.1:8200"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
