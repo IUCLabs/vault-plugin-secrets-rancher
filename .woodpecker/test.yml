@@ -1,0 +1,33 @@
+when:
+  - event: pull_request
+
+steps:
+  - name: lint
+    image: golang:1.25
+    commands:
+      - make lint
+    backend_options:
+      kubernetes:
+        serviceAccountName: default
+        resources:
+          requests:
+            memory: 512Mi
+            cpu: 1
+          limits:
+            memory: 2Gi
+            cpu: 2
+
+  - name: test
+    image: golang:1.25
+    commands:
+      - make test
+    backend_options:
+      kubernetes:
+        serviceAccountName: default
+        resources:
+          requests:
+            memory: 512Mi
+            cpu: 1
+          limits:
+            memory: 2Gi
+            cpu: 2

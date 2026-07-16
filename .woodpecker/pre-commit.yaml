@@ -1,0 +1,18 @@
+when:
+  - event: pull_request
+
+steps:
+  - name: pre-commit
+    image: git.unkin.net/unkin/almalinux9-gobuilder:20260606
+    commands:
+      - uvx pre-commit run --all-files
+    backend_options:
+      kubernetes:
+        serviceAccountName: default
+        resources:
+          requests:
+            memory: 512Mi
+            cpu: 1
+          limits:
+            memory: 2Gi
+            cpu: 2
