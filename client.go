@@ -59,8 +59,13 @@ type tokenSpec struct {
 }
 
 type tokenStatus struct {
-	// Value is the usable token string. It is returned only in the creation
-	// response and never again.
+	// BearerToken is the full, usable credential for the Authorization header —
+	// ext.cattle.io tokens are of the form "ext/<name>:<secret>". It is returned
+	// only in the creation response and never again. This is the field to use;
+	// Value alone is just the secret fragment and does NOT authenticate.
+	BearerToken string `json:"bearerToken,omitempty"`
+	// Value is the secret fragment. Kept as a fallback for Rancher builds that
+	// don't populate bearerToken.
 	Value string `json:"value,omitempty"`
 }
 
@@ -124,10 +129,16 @@ func (c *rancherClient) MintToken(ctx context.Context, req mintRequest) (value, 
 	if err := c.do(ctx, http.MethodPost, tokensAPIPath, body, &out); err != nil {
 		return "", "", err
 	}
-	if out.Status.Value == "" {
+	// Prefer bearerToken ("ext/<name>:<secret>") — the field that actually
+	// authenticates. Fall back to value only if a Rancher build omits it.
+	tok := out.Status.BearerToken
+	if tok == "" {
+		tok = out.Status.Value
+	}
+	if tok == "" {
 		return "", "", errors.New("rancher returned an empty token value")
 	}
-	return out.Status.Value, out.Metadata.Name, nil
+	return tok, out.Metadata.Name, nil
 }
 
 // DeleteToken removes a Token by its resource name. A missing token is success.
