@@ -48,10 +48,10 @@ func (f *fakeRancher) server(t *testing.T) *httptest.Server {
 			_ = json.NewDecoder(r.Body).Decode(&in)
 			f.minted++
 			newName := in.Metadata.GenerateName + "abcd"
-			value := "token-" + newName
+			bearer := "ext/" + newName + ":secret"
 			f.byName[newName] = in.Spec.ClusterName
-			f.valid[value] = newName
-			out := token{Metadata: tokenMetadata{Name: newName}, Status: tokenStatus{Value: value}}
+			f.valid[bearer] = newName
+			out := token{Metadata: tokenMetadata{Name: newName}, Status: tokenStatus{BearerToken: bearer, Value: "secret"}}
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusCreated)
 			_ = json.NewEncoder(w).Encode(out)
@@ -150,8 +150,14 @@ func TestLifecycle(t *testing.T) {
 		t.Fatal("creds returned no secret")
 	}
 	tokenName, _ := creds.Data["token_name"].(string)
-	if tokenName == "" || creds.Data["token"].(string) == "" {
+	tokenVal, _ := creds.Data["token"].(string)
+	if tokenName == "" || tokenVal == "" {
 		t.Fatal("creds missing token/token_name")
+	}
+	// Must be the usable bearer credential (ext/<name>:<secret>), not the bare
+	// secret fragment from status.value — see the bearerToken fix.
+	if !strings.HasPrefix(tokenVal, "ext/") {
+		t.Errorf("token = %q, want the ext/ bearerToken form", tokenVal)
 	}
 	if creds.Data["cluster_name"].(string) != "c-m-abc123" {
 		t.Errorf("cluster_name = %q, want c-m-abc123", creds.Data["cluster_name"])

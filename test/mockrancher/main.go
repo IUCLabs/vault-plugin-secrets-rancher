@@ -31,7 +31,8 @@ type tokenSpec struct {
 }
 
 type tokenStatus struct {
-	Value string `json:"value,omitempty"`
+	BearerToken string `json:"bearerToken,omitempty"`
+	Value       string `json:"value,omitempty"`
 }
 
 type token struct {
@@ -88,16 +89,19 @@ func (s *store) handle(w http.ResponseWriter, r *http.Request) {
 		if newName == "" {
 			newName = req.Metadata.GenerateName + randHex(4)
 		}
-		value := "token-" + newName + ":" + randHex(16)
+		// ext.cattle.io returns the usable credential in status.bearerToken,
+		// formatted "ext/<name>:<secret>"; status.value is only the secret.
+		secret := randHex(16)
+		bearer := "ext/" + newName + ":" + secret
 		t := &token{
 			APIVersion: "ext.cattle.io/v1",
 			Kind:       "Token",
 			Metadata:   tokenMeta{Name: newName},
 			Spec:       req.Spec,
-			Status:     tokenStatus{Value: value},
+			Status:     tokenStatus{BearerToken: bearer, Value: secret},
 		}
 		s.tokens[newName] = t
-		s.valid[value] = newName
+		s.valid[bearer] = newName
 		writeJSON(w, http.StatusCreated, t)
 	case r.Method == http.MethodGet && name != "": // read
 		t, ok := s.tokens[name]
