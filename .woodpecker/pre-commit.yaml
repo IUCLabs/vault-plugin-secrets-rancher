@@ -3,16 +3,28 @@ when:
 
 steps:
   - name: pre-commit
-    image: git.unkin.net/unkin/almalinux9-gobuilder:20260606
+    image: artifactapi.k8s.syd1.au.unkin.net/docker-internal/gobuilder:0.1.2-alma9
     commands:
       - uvx pre-commit run --all-files
+    environment:
+      GOCACHE_S3_BUCKET: gocache
+      GOCACHE_S3_REGION: us-east-1
+      GOCACHE_S3_ENDPOINT_URL: https://s3.ceph.unkin.net
+      GOCACHE_S3_PATH_STYLE: "true"
+      GOCACHE_KEY_PREFIX: ci-vault-plugin-secrets-rancher
+      GOCACHE_METRICS: "true"
+      GOCACHEPROG: go-cache-plugin --cache-dir=/tmp/gocache
+      AWS_ACCESS_KEY_ID:
+        from_secret: GOCACHE_AWS_ACCESS_KEY_ID
+      AWS_SECRET_ACCESS_KEY:
+        from_secret: GOCACHE_AWS_SECRET_ACCESS_KEY
     backend_options:
       kubernetes:
         serviceAccountName: default
         resources:
           requests:
-            memory: 512Mi
+            memory: 1Gi
             cpu: 1
           limits:
-            memory: 2Gi
+            memory: 3Gi
             cpu: 2
