@@ -26,7 +26,7 @@ steps:
           limits: {memory: 3Gi, cpu: 2}
 
   - name: package
-    image: git.unkin.net/unkin/almalinux9-rpmbuilder:latest
+    image: artifactapi.k8s.syd1.au.unkin.net/docker-internal/rpmbuilder:0.1.0-alma9
     commands:
       - ./scripts/build-rpm.sh ${CI_COMMIT_TAG}
     depends_on: [build]
