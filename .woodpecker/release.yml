@@ -43,12 +43,19 @@ steps:
       - |
         HOST="https://artifactapi.k8s.syd1.au.unkin.net"
         REPO="rpm-internal"
+        set -o pipefail
+        VAULT="https://vault.service.consul:8200"
+        AUTH=$$(mktemp)
+        VT=$$(jq -n --rawfile jwt /var/run/secrets/kubernetes.io/serviceaccount/token '{role:"woodpecker_artifactapi_writer",jwt:$$jwt}' \
+          | curl -sf -d @- "$$VAULT/v1/auth/k8s/au/syd1/login" | jq -er .auth.client_token) || exit 1
+        printf 'X-Vault-Token: %s\n' "$$VT" | curl -sf -H @- "$$VAULT/v1/identity/oidc/token/artifactapi-writer" \
+          | jq -er '"Authorization: Bearer " + .data.token' > "$$AUTH" || exit 1
         for rpm in dist/*.rpm; do
           FILE=$$(basename "$$rpm")
           code=$$(curl -s -o /dev/null -w '%{http_code}' "$$HOST/api/v2/remotes/$$REPO/files/Packages/$$FILE" || true)
           if [ "$$code" = "200" ]; then echo "$$FILE exists; skipping"; continue; fi
           echo "Uploading $$FILE (probe $$code)"
-          curl -f -X PUT "$$HOST/api/v2/remotes/$$REPO/files/$$FILE" -H "Content-Type: application/x-rpm" --data-binary @"$$rpm"
+          curl -f -X PUT "$$HOST/api/v2/remotes/$$REPO/files/$$FILE" -H "Content-Type: application/x-rpm" -H @"$$AUTH" --data-binary @"$$rpm"
         done
     depends_on: [package]
     backend_options:
