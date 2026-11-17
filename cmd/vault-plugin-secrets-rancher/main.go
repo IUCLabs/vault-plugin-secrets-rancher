@@ -7,7 +7,7 @@ import (
 	"github.com/hashicorp/vault/api"
 	"github.com/hashicorp/vault/sdk/plugin"
 
-	rancher "git.unkin.net/unkin/vault-plugin-secrets-rancher"
+	rancher "github.com/IUCLabs/vault-plugin-secrets-rancher"
 )
 
 func main() {

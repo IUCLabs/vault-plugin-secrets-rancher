@@ -1,4 +1,4 @@
-module git.unkin.net/unkin/vault-plugin-secrets-rancher
+module github.com/IUCLabs/vault-plugin-secrets-rancher
 
 go 1.25.0
 
