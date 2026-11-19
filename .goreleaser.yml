@@ -1,0 +1,56 @@
+version: 2
+project_name: vault-plugin-secrets-rancher
+
+builds:
+  - main: ./cmd/vault-plugin-secrets-rancher
+    env:
+      - CGO_ENABLED=0
+    mod_timestamp: "{{ .CommitTimestamp }}"
+    flags:
+      - -trimpath
+    ldflags:
+      - -s -w -X main.version={{ .Tag }}
+    goos: [linux]
+    goarch: [amd64]
+
+archives:
+  - formats: [none]
+
+nfpms:
+  - &rpm
+    id: vault
+    package_name: vault-plugin-secrets-rancher
+    bindir: /opt/vault-plugins
+    scripts:
+      preinstall: packaging/scripts/preinstall-vault.sh
+    replaces: [vault-plugin-secrets-rancher]
+    provides: [vault-plugin-secrets-rancher]
+    formats: [rpm]
+    file_name_template: "{{ .ConventionalFileName }}"
+    release: "1"
+    section: default
+    priority: extra
+    description: Vault/OpenBao secrets engine for Rancher API tokens (tokens.ext.cattle.io)
+    maintainer: IUCLabs
+    homepage: https://github.com/IUCLabs/vault-plugin-secrets-rancher
+    license: MIT
+  - <<: *rpm
+    id: openbao
+    package_name: openbao-plugin-secrets-rancher
+    bindir: /opt/openbao-plugins
+    scripts:
+      preinstall: packaging/scripts/preinstall-openbao.sh
+    replaces: [openbao-plugin-secrets-rancher]
+    provides: [openbao-plugin-secrets-rancher]
+
+checksum:
+  name_template: "{{ .ProjectName }}_{{ .Version }}_SHA256SUMS"
+  algorithm: sha256
+
+signs:
+  - artifacts: checksum
+    cmd: scripts/sign.sh
+    args: ["${artifact}", "${signature}"]
+
+changelog:
+  disable: true

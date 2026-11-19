@@ -1,4 +1,4 @@
-.PHONY: build install test lint fmt clean tidy rpm rpm-package patch minor major check-go e2e e2e-vault e2e-openbao e2e-up e2e-down
+.PHONY: build install test lint fmt clean tidy rpm patch minor major check-go e2e e2e-vault e2e-openbao e2e-up e2e-down
 
 BINARY := vault-plugin-secrets-rancher
 PKG := ./cmd/vault-plugin-secrets-rancher
@@ -36,10 +36,8 @@ tidy:
 clean:
 	rm -rf $(PLUGIN_DIR)
 
-rpm: build rpm-package
-
-rpm-package:
-	./scripts/build-rpm.sh $(VERSION)
+rpm:
+	GOTOOLCHAIN=auto go run github.com/goreleaser/goreleaser/v2@v2.20.2 release --snapshot --clean --skip=sign
 
 # End-to-end tests bring up a mock companion API plus Vault and OpenBao in
 # Docker and drive the full lifecycle against each with the same plugin binary.
