@@ -20,7 +20,7 @@ nfpms:
   - &rpm
     id: vault
     package_name: vault-plugin-secrets-rancher
-    bindir: /opt/vault-plugins
+    bindir: /usr/libexec/vault-plugins
     scripts:
       preinstall: packaging/scripts/preinstall-vault.sh
     replaces: [vault-plugin-secrets-rancher]
@@ -37,7 +37,7 @@ nfpms:
   - <<: *rpm
     id: openbao
     package_name: openbao-plugin-secrets-rancher
-    bindir: /opt/openbao-plugins
+    bindir: /usr/libexec/openbao-plugins
     scripts:
       preinstall: packaging/scripts/preinstall-openbao.sh
     replaces: [openbao-plugin-secrets-rancher]
