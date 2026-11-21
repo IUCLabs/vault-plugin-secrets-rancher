@@ -56,20 +56,20 @@ e2e-up:
 e2e-down:
 	docker compose -f test/docker-compose.yml down -v
 
-_LATEST := $(shell git tag --sort=-v:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$$' | head -1)
-_BASE   := $(if $(_LATEST),$(_LATEST),v0.0.0)
-_MAJ    := $(shell echo $(_BASE) | sed 's/^v//' | cut -d. -f1)
-_MIN    := $(shell echo $(_BASE) | sed 's/^v//' | cut -d. -f2)
-_PAT    := $(shell echo $(_BASE) | sed 's/^v//' | cut -d. -f3)
+DEFAULT_BRANCH ?= main
 
-patch:
-	@NEW=v$(_MAJ).$(_MIN).$(shell expr $(_PAT) + 1); \
-	git tag $$NEW && echo "Tagged $$NEW" && git push origin $$NEW
-
-minor:
-	@NEW=v$(_MAJ).$(shell expr $(_MIN) + 1).0; \
-	git tag $$NEW && echo "Tagged $$NEW" && git push origin $$NEW
-
-major:
-	@NEW=v$(shell expr $(_MAJ) + 1).0.0; \
-	git tag $$NEW && echo "Tagged $$NEW" && git push origin $$NEW
+# Draft the release with generated notes, then push the tag; the release
+# workflow attaches assets to the draft and publishes it.
+patch minor major:
+	@git fetch --quiet --tags origin $(DEFAULT_BRANCH)
+	@test "$$(git branch --show-current)" = "$(DEFAULT_BRANCH)" || { echo "ERROR: not on $(DEFAULT_BRANCH)"; exit 1; }
+	@test -z "$$(git status --porcelain)" || { echo "ERROR: working tree not clean"; exit 1; }
+	@test "$$(git rev-parse HEAD)" = "$$(git rev-parse origin/$(DEFAULT_BRANCH))" || { echo "ERROR: HEAD is not origin/$(DEFAULT_BRANCH)"; exit 1; }
+	@LATEST=$$(git tag --list 'v*' --sort=-v:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$$' | head -1); \
+	NEW=$$(echo "$${LATEST:-v0.0.0}" | sed 's/^v//' | awk -F. -v b=$@ '{ \
+		if (b == "major") print "v" ($$1+1) ".0.0"; \
+		else if (b == "minor") print "v" $$1 "." ($$2+1) ".0"; \
+		else print "v" $$1 "." $$2 "." ($$3+1) }'); \
+	SHA=$$(git rev-parse HEAD); \
+	gh release create "$$NEW" --draft --target "$$SHA" --generate-notes --title "$$NEW" || exit 1; \
+	git push origin "$$SHA:refs/tags/$$NEW" || { gh release delete "$$NEW" --yes; exit 1; }
