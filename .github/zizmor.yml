@@ -1,0 +1,10 @@
+rules:
+  unpinned-uses:
+    config:
+      policies:
+        "IUCLabs/workflows/*": ref-pin
+        "*": hash-pin
+  # dnephin/pre-commit-golang is archived but its hooks still work
+  archived-uses:
+    ignore:
+      - .pre-commit-config.yaml

@@ -44,6 +44,15 @@ nfpms:
     replaces: [openbao-plugin-secrets-rancher]
     provides: [openbao-plugin-secrets-rancher]
 
+dockers_v2:
+  - images: ["ghcr.io/iuclabs/{{ .ProjectName }}"]
+    tags: ["{{ .Tag }}", "latest"]
+    platforms: [linux/amd64]
+    labels:
+      org.opencontainers.image.source: "https://github.com/IUCLabs/{{ .ProjectName }}"
+      org.opencontainers.image.version: "{{ .Version }}"
+      org.opencontainers.image.revision: "{{ .FullCommit }}"
+
 checksum:
   name_template: "{{ .ProjectName }}_{{ .Version }}_SHA256SUMS"
   algorithm: sha256

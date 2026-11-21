@@ -4,35 +4,14 @@ on:
   push:
     tags: ["v*"]
 
-permissions:
-  contents: write
-  id-token: write
-
-env:
-  VAULT_ADDR: https://vault.service.consul:8200
+permissions: {}
 
 jobs:
   release:
-    runs-on: iuclabs-release
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          fetch-depth: 0
-      - uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
-        with:
-          go-version-file: go.mod
-      - uses: hashicorp/vault-action@892a26828f195e65540a40b4768ae4571f51ebfc # v4.0.0
-        with:
-          url: ${{ env.VAULT_ADDR }}
-          method: jwt
-          path: jwt/github/iuclabs
-          role: release
-          jwtGithubAudience: ${{ env.VAULT_ADDR }}
-          exportToken: true
-      - uses: goreleaser/goreleaser-action@a4f02ab5355a589de60d917a659ce617ed19b3de # v7.3.0
-        with:
-          distribution: goreleaser
-          version: v2.20.2
-          args: release --clean
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    uses: IUCLabs/workflows/.github/workflows/release-vault-plugin.yml@v0.1.0
+    permissions:
+      contents: write
+      id-token: write
+      packages: write
+    with:
+      vault_role: release-shared
