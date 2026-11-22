@@ -8,7 +8,7 @@ permissions: {}
 
 jobs:
   release:
-    uses: IUCLabs/workflows/.github/workflows/release-vault-plugin.yml@v0.1.0
+    uses: IUCLabs/workflows/.github/workflows/release-goreleaser.yml@v0.1.1
     permissions:
       contents: write
       id-token: write
