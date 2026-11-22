@@ -33,25 +33,105 @@ service account with each, and point roles at the right one.
 
 ## Installation
 
-Download a binary from the
-[releases page](https://github.com/IUCLabs/vault-plugin-secrets-rancher/releases),
-or build it:
+Release assets download through artifactapi's GitHub proxy, which serves
+`https://artifactapi.k8s.syd1.au.unkin.net/api/v1/remote/github/IUCLabs/vault-plugin-secrets-rancher/releases/download/<tag>/<file>`.
+Each method below ends with `SHA256` set for [registration](#register-and-enable).
+With OpenBao, use `bao` in place of `vault`.
 
 ```sh
-git clone https://github.com/IUCLabs/vault-plugin-secrets-rancher
-cd vault-plugin-secrets-rancher
-make build    # writes dist/vault-plugin-secrets-rancher
+TAG=vX.Y.Z  # the release to install
+V=${TAG#v}
+BASE=https://artifactapi.k8s.syd1.au.unkin.net/api/v1/remote/github/IUCLabs/vault-plugin-secrets-rancher/releases/download/$TAG
 ```
 
-Copy `dist/vault-plugin-secrets-rancher` into the directory set as
-`plugin_directory` in the server config, then register and enable it. The
-commands are identical for OpenBao — use `bao` in place of `vault`.
+### RPM
+
+Install the Vault RPM or the OpenBao RPM, not both. Set the server's
+`plugin_directory` to the directory the RPM installs into.
+
+Vault: installs `/usr/libexec/vault-plugins/vault-plugin-secrets-rancher`.
 
 ```sh
-SHA256=$(sha256sum dist/vault-plugin-secrets-rancher | cut -d' ' -f1)
+dnf install vault-plugin-secrets-rancher  # from a yum repo carrying it, or from the release:
+dnf install "$BASE/vault-plugin-secrets-rancher-$V-1.x86_64.rpm"
 
+SHA256=$(sha256sum /usr/libexec/vault-plugins/vault-plugin-secrets-rancher | cut -d' ' -f1)
+```
+
+OpenBao: installs `/usr/libexec/openbao-plugins/vault-plugin-secrets-rancher`.
+
+```sh
+dnf install openbao-plugin-secrets-rancher  # from a yum repo carrying it, or from the release:
+dnf install "$BASE/openbao-plugin-secrets-rancher-$V-1.x86_64.rpm"
+
+SHA256=$(sha256sum /usr/libexec/openbao-plugins/vault-plugin-secrets-rancher | cut -d' ' -f1)
+```
+
+### Released binary
+
+`vault-plugin-secrets-rancher_<version>_SHA256SUMS` lists the binary and the RPMs.
+
+```sh
+curl -fLO "$BASE/vault-plugin-secrets-rancher_${V}_linux_amd64"
+curl -fLO "$BASE/vault-plugin-secrets-rancher_${V}_SHA256SUMS"
+sha256sum --check --ignore-missing "vault-plugin-secrets-rancher_${V}_SHA256SUMS"
+
+install -m 0755 "vault-plugin-secrets-rancher_${V}_linux_amd64" <plugin_directory>/vault-plugin-secrets-rancher
+SHA256=$(sha256sum <plugin_directory>/vault-plugin-secrets-rancher | cut -d' ' -f1)
+```
+
+### Kubernetes image volume
+
+`ghcr.io/iuclabs/vault-plugin-secrets-rancher:<tag>` is a `FROM scratch` image holding only
+`/vault-plugin-secrets-rancher`. Mount it read-only into the Vault/OpenBao container with an
+[image volume](https://kubernetes.io/docs/concepts/storage/volumes/#image):
+Image volumes are beta from Kubernetes 1.33 but off by default (enable the
+`ImageVolume` feature gate), on by default from 1.35, and GA in 1.36. Vault and OpenBao only run a binary that sits directly in
+`plugin_directory`, not in a subdirectory, so mount the file itself with
+`subPath`, which on image volumes needs 1.33+.
+
+```yaml
+spec:
+  containers:
+    - name: vault
+      volumeMounts:
+        - name: plugin-rancher
+          mountPath: /vault/plugins/vault-plugin-secrets-rancher  # <plugin_directory>/vault-plugin-secrets-rancher
+          subPath: vault-plugin-secrets-rancher
+          readOnly: true
+  volumes:
+    - name: plugin-rancher
+      image:
+        reference: ghcr.io/iuclabs/vault-plugin-secrets-rancher:vX.Y.Z
+        pullPolicy: IfNotPresent
+```
+
+The image holds the released binary, so its sha256 is the `linux_amd64` line
+of `SHA256SUMS`:
+
+```sh
+SHA256=$(curl -fsSL "$BASE/vault-plugin-secrets-rancher_${V}_SHA256SUMS" | awk '/_linux_amd64$/ {print $1}')
+```
+
+### From source
+
+```sh
+make build  # writes ./dist/vault-plugin-secrets-rancher
+```
+
+Copy it into `plugin_directory` and take `SHA256` from `sha256sum` as above.
+
+### Register and enable
+
+```sh
 vault plugin register -sha256="$SHA256" secret vault-plugin-secrets-rancher
 vault secrets enable -path=rancher vault-plugin-secrets-rancher
+```
+
+After replacing the binary, register the new sha256 and reload the plugin:
+
+```sh
+vault write sys/plugins/reload/backend plugin=vault-plugin-secrets-rancher
 ```
 
 ## Configuration
